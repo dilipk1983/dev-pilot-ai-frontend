@@ -1,0 +1,30 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+# VSCode settings
+.vscode/
+# OS files
+.DS_Store
+Thumbs.db
+# Python egg/dist/build
+*.egg-info/
+dist/
+build/
+# Docker
+backend/__pycache__/
+frontend/node_modules/
+frontend/dist/
+*.log
+# Ignore compiled JS/CSS maps
+*.map
+# Ignore local database files
+*.sqlite3
+# Ignore test output
+.pytest_cache/
+# Ignore coverage reports
+htmlcov/
+.coverage
+# Ignore environment files
+*.env.*
+node_modules
