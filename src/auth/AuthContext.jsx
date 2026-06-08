@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useCallback } from 'react';
 
 export const AuthContext = createContext();
 
@@ -6,6 +6,85 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+
+  const getAuthToken = useCallback(() => {
+    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  }, []);
+
+  const getAuthUser = useCallback(() => {
+    return localStorage.getItem('authUser') || sessionStorage.getItem('authUser');
+  }, []);
+
+  const clearAuthStorage = useCallback(() => {
+    localStorage.removeItem('authUser');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authTokenExpiry');
+    sessionStorage.removeItem('authUser');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('authTokenExpiry');
+  }, []);
+
+  const getAuthTokenExpiry = useCallback(() => {
+    return localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry');
+  }, []);
+
+  const parseExpiryToMs = useCallback((expiration) => {
+    if (!expiration) return null;
+
+    if (typeof expiration === 'number') {
+      return Number.isFinite(expiration) ? expiration : null;
+    }
+
+    if (typeof expiration === 'string') {
+      const hasTimezone = /[zZ]$|[+-]\d{2}:\d{2}$/.test(expiration);
+      const normalized = hasTimezone ? expiration : `${expiration}Z`;
+      const parsed = new Date(normalized).getTime();
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+  }, []);
+
+  const getJwtExpMs = useCallback((token) => {
+    if (!token || typeof token !== 'string') return null;
+
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded));
+      const expMs = Number(payload?.exp) * 1000;
+
+      return Number.isFinite(expMs) ? expMs : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isTokenExpired = useCallback((authToken) => {
+    const jwtExpiryMs = getJwtExpMs(authToken);
+    if (jwtExpiryMs) {
+      return Date.now() > jwtExpiryMs;
+    }
+
+    const expiry = getAuthTokenExpiry();
+    if (!expiry) return true;
+
+    const expiryMs = Number(expiry);
+    if (!Number.isFinite(expiryMs)) return true;
+
+    return Date.now() > expiryMs;
+  }, [getAuthTokenExpiry, getJwtExpMs]);
+
+  const validateToken = useCallback((authToken) => {
+    if (!authToken || isTokenExpired(authToken)) {
+      clearAuthStorage();
+      return null;
+    }
+    return true;
+  }, [clearAuthStorage, isTokenExpired]);
 
   useEffect(() => {
     const authToken = getAuthToken();
@@ -21,7 +100,7 @@ export function AuthProvider({ children }) {
     }
 
     setIsAuthReady(true);
-  }, []);
+  }, [getAuthToken, getAuthUser, validateToken]);
 
   const login = async (username, password, rememberMe) => {
     try {
@@ -83,85 +162,6 @@ export function AuthProvider({ children }) {
     clearAuthStorage();
   };  
 
-  function validateToken(authToken)
-  {
-    if (!authToken || isTokenExpired(authToken)) {
-      clearAuthStorage();
-      return null;
-    }
-    return true;
-  }
-
-  function clearAuthStorage() {
-    localStorage.removeItem('authUser');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authTokenExpiry');
-    sessionStorage.removeItem('authUser');
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('authTokenExpiry');
-  }
-
-  function isTokenExpired(authToken) {
-    const jwtExpiryMs = getJwtExpMs(authToken);
-    if (jwtExpiryMs) {
-      return Date.now() > jwtExpiryMs;
-    }
-
-    const expiry = getAuthTokenExpiry();
-    if (!expiry) return true;
-
-    const expiryMs = Number(expiry);
-    if (!Number.isFinite(expiryMs)) return true;
-
-    return Date.now() > expiryMs;
-  }
-
-  function getAuthUser(){    
-    return localStorage.getItem('authUser') || sessionStorage.getItem('authUser');    
-  }
- 
-  const getAuthToken = () => {    
-    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');    
-  }
-
-  function getAuthTokenExpiry(){
-    return localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry');
-  }
-
-  function parseExpiryToMs(expiration) {
-    if (!expiration) return null;
-
-    if (typeof expiration === 'number') {
-      return Number.isFinite(expiration) ? expiration : null;
-    }
-
-    if (typeof expiration === 'string') {
-      const hasTimezone = /[zZ]$|[+-]\d{2}:\d{2}$/.test(expiration);
-      const normalized = hasTimezone ? expiration : `${expiration}Z`;
-      const parsed = new Date(normalized).getTime();
-      return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    return null;
-  }
-
-  function getJwtExpMs(token) {
-    if (!token || typeof token !== 'string') return null;
-
-    try {
-      const parts = token.split('.');
-      if (parts.length < 2) return null;
-
-      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const payload = JSON.parse(atob(padded));
-      const expMs = Number(payload?.exp) * 1000;
-
-      return Number.isFinite(expMs) ? expMs : null;
-    } catch {
-      return null;
-    }
-  }
 
   function storeAuthToken(token, isPersistent){
     if(isPersistent){
