@@ -19,8 +19,8 @@ export default function Login(): React.ReactElement {
 
   const [isSignupMode, setIsSignupMode] = useState(false);
   const [name, setName] = useState("");
-  const [username, setUsername] = useState("DilipK");
-  const [password, setPassword] = useState("Password@123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
