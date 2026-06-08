@@ -74,7 +74,7 @@ export default function Login(): React.ReactElement {
       <div className="login-box">
         <div className="login-logo">
           <a href="/">
-            <b>Admin</b>LTE
+            <b>Dev Pilot AI</b>
           </a>
         </div>
         <div className="card">

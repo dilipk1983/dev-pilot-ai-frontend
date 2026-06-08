@@ -16,13 +16,15 @@ export default function Sidebar() {
     <aside className="main-sidebar sidebar-dark-primary elevation-4" data-bs-theme="dark">
 
       <a href="/" className="brand-link">
-        <img src="/images/AdminLTELogo.png"
-          alt="AdminLTE Logo"
+        <img
+          src="/images/DevPilotAILogo.png"
+          alt="Dev Pilot AI"
           className="brand-image img-circle elevation-3"
-          style={{ opacity: '.8' }} ></img>
-        <span className="brand-text font-weight-light">AdminLTE 3</span>
+          style={{ width: '32px', height: '32px', objectFit: 'contain', opacity: '.8' }}
+        />
+        <span className="brand-text font-weight-light">Dev Pilot AI</span>
       </a>
-      <div class="sidebar">
+      <div className="sidebar">
         <nav className="mt-2">
           <ul className="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
             <li className="nav-item">
