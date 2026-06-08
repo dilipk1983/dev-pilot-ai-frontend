@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { useChatSessionContext } from "../../hooks/useChatSessionContext";
 import ChatHistorySidebar from "./ChatHistory";
@@ -224,7 +226,13 @@ const AiChatView: React.FC = () => {
                     <div className="small mb-1" style={{ opacity: 0.75 }}>
                       {msg.sender === "user" ? "You" : "Assistant"}
                     </div>
-                    <div>{msg.text}</div>
+                    {msg.sender === "ai" ? (
+                      <div className="chat-markdown">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div>{msg.text}</div>
+                    )}
                   </div>
                 </div>
               ))}
