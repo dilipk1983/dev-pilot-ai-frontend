@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
 import { useChatSessionContext } from "../../hooks/useChatSessionContext";
 import ChatHistorySidebar from "./ChatHistory";
@@ -10,7 +12,10 @@ const AiChatView: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [pendingSessionName, setPendingSessionName] = useState("");
-
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const silenceTimerRef = useRef<number | null>(null);
+  const silenceTimeoutMs = 2500;
+  const { transcript, browserSupportsSpeechRecognition, resetTranscript } = useSpeechRecognition();
   const {
     messages,
     input,
@@ -45,6 +50,95 @@ const AiChatView: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const clearSilenceTimer = (): void => {
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  };
+
+  const stopVoiceInput = useCallback((shouldSubmit = false): void => {
+    clearSilenceTimer();
+    if (!isListening) {
+      return;
+    }
+
+    SpeechRecognition.stopListening();
+    setIsListening(false);
+
+    if (shouldSubmit) {
+      const finalText = transcript.trim();
+      if (finalText) {
+        setInput(finalText);
+        window.setTimeout(() => {
+          setInput("");
+          resetTranscript();
+          void handleSend();
+        }, 0);
+      } else {
+        setInput("");
+        resetTranscript();
+      }
+    }
+  }, [handleSend, isListening, resetTranscript, setInput, transcript]);
+
+  useEffect(() => {
+    if (!isListening) {
+      clearSilenceTimer();
+      return;
+    }
+
+    clearSilenceTimer();
+    silenceTimerRef.current = window.setTimeout(() => {
+      stopVoiceInput(true);
+    }, silenceTimeoutMs);
+
+    return () => {
+      clearSilenceTimer();
+    };
+  }, [isListening, stopVoiceInput, transcript]);
+
+  useEffect(() => {
+    if (!isListening) {
+      return;
+    }
+
+    if (transcript) {
+      setInput(transcript);
+    }
+  }, [isListening, setInput, transcript]);
+
+  const toggleListening = async (): Promise<void> => {
+    if (!browserSupportsSpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please try Google Chrome.");
+      return;
+    }
+
+    if (isListening) {
+      stopVoiceInput(false);
+      return;
+    }
+
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      alert("Microphone access is required for voice typing. Please allow microphone access and try again.");
+      return;
+    }
+
+    resetTranscript();
+    setInput("");
+    setIsListening(true);
+
+    try {
+      await SpeechRecognition.startListening({ continuous: false, language: "en-US" });
+    } catch (error) {
+      console.error("Speech recognition error:", error);
+      setIsListening(false);
+      alert("Unable to start voice recognition. Please try again.");
+    }
+  };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !isSending) {
@@ -244,14 +338,28 @@ const AiChatView: React.FC = () => {
           <div className="card-footer bg-white border-top">
             <div className="mx-auto" style={{ maxWidth: "980px" }}>
               <div className="input-group input-group-lg">
+
+                {/* Microphone Toggle Button */}
+                <div className="input-group-prepend">
+                  <button
+                    className={`btn ${isListening ? "btn-danger animate-pulse" : "btn-outline-secondary"}`}
+                    onClick={toggleListening}
+                    type="button"
+                    title={isListening ? "Stop listening" : "Speak to type"}
+                  >
+                    <i className={`fas ${isListening ? "fa-microphone-slash" : "fa-microphone"}`}></i>
+                  </button>
+                </div>
+
                 <input
                   type="text"
-                  placeholder="Message AI Assistant..."
+                  placeholder={isListening ? "Listening... Speak now..." : "Message AI Assistant..."}
                   className="form-control"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
                   onKeyDown={handleInputKeyDown}
                 />
+
                 <div className="input-group-append">
                   <button className="btn btn-primary" onClick={handleSend} type="button" disabled={!input.trim() || isSending}>
                     <i className={`fas ${isSending ? "fa-spinner fa-spin" : "fa-paper-plane"} mr-1`}></i>
